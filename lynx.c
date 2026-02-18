@@ -96,10 +96,14 @@ bool update_bookmark(sqlite3 *db, char *alias, char *col_name,
   if (strcmp("alias", col_name) == 0) {
     rc = sqlite3_prepare_v2(db, "UPDATE bookmarks SET alias=? WHERE alias=?;",
                             -1, &stmt, NULL);
-  } else {
+  } else if (strcmp("uri", col_name) == 0){
     rc = sqlite3_prepare_v2(db, "UPDATE bookmarks SET uri=? WHERE alias=?;", -1,
                             &stmt, NULL);
+  } else {
+    nob_log(ERROR, "%s isn't a valid column name", col_name);
+    return false;
   }
+
   if (rc != SQLITE_OK) {
     nob_log(ERROR, "%s", sqlite3_errmsg(db));
     sqlite3_close(db);
