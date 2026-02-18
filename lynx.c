@@ -140,6 +140,9 @@ void remove_bookmark(sqlite3 *db, char *alias) {
   if (sqlite3_step(stmt) != SQLITE_DONE) {
     nob_log(ERROR, "%s", sqlite3_errmsg(db));
   }
+  if (sqlite3_changes(db) == 0) {
+    nob_log(ERROR, "no bookmark found with alias %s", alias);
+  }
 }
 
 int main(int argc, char *argv[]) {
