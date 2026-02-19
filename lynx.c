@@ -1,6 +1,7 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
@@ -28,13 +29,15 @@ void print_help() {
          "alias or uri to new_alias or new_uri\n");
 }
 
-void list_bookmarks() {
+bool list_bookmarks() {
   if (bms.count == 0) {
     nob_log(INFO, " no bookmarks saved");
+    return false;
   }
   nob_da_foreach(Bookmark, bm, &bms) {
     nob_log(INFO, "bm.alias=%s - bm.uri=%s", bm->alias, bm->uri);
   }
+  return true;
 }
 
 bool add_bookmark(sqlite3 *db, char *alias, char *uri) {
@@ -46,9 +49,11 @@ bool add_bookmark(sqlite3 *db, char *alias, char *uri) {
   }
   if(sqlite3_bind_text(stmt, 1, alias, -1, SQLITE_STATIC) != SQLITE_OK) {
     nob_log(ERROR, "could not bind %s because of %s", alias, sqlite3_errmsg(db));
+    return false;
   }
   if(sqlite3_bind_text(stmt, 1, uri, -1, SQLITE_STATIC) != SQLITE_OK) {
     nob_log(ERROR, "could not bind %s because of %s", uri, sqlite3_errmsg(db));
+    return false;
   }
 
   rc = sqlite3_step(stmt);
@@ -126,23 +131,27 @@ bool update_bookmark(sqlite3 *db, char *alias, char *col_name,
   return true;
 }
 
-void remove_bookmark(sqlite3 *db, char *alias) {
+bool remove_bookmark(sqlite3 *db, char *alias) {
   sqlite3_stmt *stmt;
   int rc = sqlite3_prepare_v2(db, "DELETE FROM bookmarks WHERE alias=?", -1, &stmt, NULL);
   if(rc != SQLITE_OK) {
     nob_log(ERROR, "%s", sqlite3_errmsg(db));
     sqlite3_close(db);
-    return;
+    return false;
   }
   if (sqlite3_bind_text(stmt, 1, alias, -1, SQLITE_STATIC) != SQLITE_OK) {
     nob_log(ERROR, "could not bind %s because of %s", alias, sqlite3_errmsg(db));
+    return false;
   }
   if (sqlite3_step(stmt) != SQLITE_DONE) {
     nob_log(ERROR, "%s", sqlite3_errmsg(db));
+    return false;
   }
   if (sqlite3_changes(db) == 0) {
     nob_log(ERROR, "no bookmark found with alias %s", alias);
+    return false;
   }
+  return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -183,14 +192,14 @@ int main(int argc, char *argv[]) {
 
   if (strcmp("ls", argv[1]) == 0) {
     printf("in ls\n");
-    list_bookmarks();
+   if (!list_bookmarks()) { return 1; } 
   } else if (strcmp("add", argv[1]) == 0) {
     printf("in add\n");
     if (argc != 4) {
       print_help();
       return 1;
     }
-    add_bookmark(db, argv[2], argv[3]);
+    if (!add_bookmark(db, argv[2], argv[3])) { return 1; }
   } else if (strcmp("open", argv[1]) == 0) {
     TODO("not implemented yet");
   } else if (strcmp("update", argv[1]) == 0) {
@@ -200,14 +209,14 @@ int main(int argc, char *argv[]) {
       return 1;
     }
     // update alias set column_name to column_value
-    update_bookmark(db, argv[2], argv[4], argv[6]);
+    if (!update_bookmark(db, argv[2], argv[4], argv[6])) { return 1; }
   } else if(strcmp("rm", argv[1]) == 0) {
     printf("in rm\n");
     if(argc != 3) {
       print_help();
       return 1;
     }
-    remove_bookmark(db,argv[2]);
+    if (!remove_bookmark(db,argv[2])) { return 1; }
   } else {
     nob_log(ERROR, "invalid command %s", argv[1]);
     return 1;
