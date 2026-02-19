@@ -1,5 +1,6 @@
 #include <sqlite3.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -154,6 +155,49 @@ bool remove_bookmark(sqlite3 *db, char *alias) {
   return true;
 }
 
+bool open_uri(sqlite3 *db, char *alias) {
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_prepare_v2(db, "SELECT uri FROM bookmarks WHERE alias = ?",-1,&stmt,NULL);
+  if (rc != SQLITE_OK) {
+    nob_log(ERROR, "could not run stmt because of %s", sqlite3_errmsg(db));
+    return false;
+  }
+  if (sqlite3_bind_text(stmt, 1, alias, -1, SQLITE_STATIC) != SQLITE_OK) {
+    nob_log(ERROR, "could not bind %s because of %s", alias, sqlite3_errmsg(db));
+    return false;
+  }
+  rc = sqlite3_step(stmt);
+  if (rc == SQLITE_DONE) {
+    nob_log(ERROR, "no bookmark found with alias %s", alias);
+    return 1;
+  }
+  char *uri;
+  if (rc == SQLITE_ROW) {
+    uri = nob_temp_strdup((char *)sqlite3_column_text(stmt, 0));
+  }
+  if(sqlite3_step(stmt) != SQLITE_DONE) {
+    nob_log(ERROR, "This should never fire since `alias` is the primary key column and therefore unique");
+    return false;
+  }
+  sqlite3_finalize(stmt);
+  
+  char *command = "xdg-open";
+  char *res = malloc(strlen(uri)+strlen(command) + 1);
+  sprintf(res, "%s %s", command,uri);
+  nob_log(INFO, "command:[%s %s]", command, uri);
+  nob_log(INFO, "res:[%s]", res);
+
+  FILE *xdg = popen(res, "r");
+  if(xdg == NULL) {
+    nob_log(ERROR, "cannot run command %s", res);
+    return false;
+  }
+
+  pclose(xdg);
+  free(res);
+  return true;
+}
+
 int main(int argc, char *argv[]) {
   if (argc == 1) {
     print_help();
@@ -201,7 +245,7 @@ int main(int argc, char *argv[]) {
     }
     if (!add_bookmark(db, argv[2], argv[3])) { return 1; }
   } else if (strcmp("open", argv[1]) == 0) {
-    TODO("not implemented yet");
+    if(!open_uri(db, argv[2])) { return 1; }
   } else if (strcmp("update", argv[1]) == 0) {
     printf("in update\n");
     if (argc != 7) {
