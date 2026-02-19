@@ -47,7 +47,7 @@ bool add_bookmark(sqlite3 *db, char *alias, char *uri) {
   if(sqlite3_bind_text(stmt, 1, alias, -1, SQLITE_STATIC) != SQLITE_OK) {
     nob_log(ERROR, "could not bind %s because of %s", alias, sqlite3_errmsg(db));
   }
-  if(sqlite3_bind_text(stmt, 1, uri, -1, SQLITE_STATIC) != SQLITE_OK) {
+  if(sqlite3_bind_text(stmt, 2, uri, -1, SQLITE_STATIC) != SQLITE_OK) {
     nob_log(ERROR, "could not bind %s because of %s", uri, sqlite3_errmsg(db));
   }
 
